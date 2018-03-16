@@ -1,0 +1,15 @@
+{
+  "name": "spell-bot",
+  "version": "1.0.0",
+  "description": "A Discord bot that reacts to messages by using the regional indicator emojis to spell what they wrote in the message",
+  "main": "bot.js",
+  "author": "Sean Marcoux",
+  "dependencies": {
+    "discord.io": "^2.5.3",
+    "discord.js": "^11.3.0",
+    "node-opus": "^0.2.7",
+    "request": "^2.83.0",
+    "requests": "^0.2.2",
+    "winston": "^2.4.0"
+  }
+}
