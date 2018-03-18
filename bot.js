@@ -2,6 +2,10 @@ const Discord = require("discord.js");
 const client = new Discord.Client();
 const fs = require('fs');
 const request = require('request');
+var ytdl = require('ytdl-core');
+
+var volume = 0.1;
+var dispatchers= [];
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
@@ -47,8 +51,17 @@ function reactToCommands(msg, message)
     else if(message.startsWith("$help")) {
         help(msg);
     }
-    else if(message.startsWith("$music")) {
+    /*else if(message.startsWith("$music")) {
         playMusic(msg);
+    }*/
+    else if(message.startsWith("$youtube ")) {
+        playYoutube(msg);
+    }
+    else if(message.startsWith("$volumeup ")) {
+        volumeUp(msg, message);
+    }
+    else if(message.startsWith("$volumedown ")) {
+        volumeDown(msg, message);
     }
     else {
         msg.reply("I didn't understand that command. If it was meant for another bot, my bad!");
@@ -58,10 +71,13 @@ function reactToCommands(msg, message)
 function help(msg) {
     msg.reply("The following commands are available:\n"
         + "*$help*: Displays this message\n"
-        + "*$music*: I'll play the best song ever");
+        /*+ "*$music*: I'll play the best song ever\n"*/
+        + "*$youtube (url)*: I'll play the audio from the video you link to\n"
+        + "*$volumeup (number)*: I'll increase the volume by the amount you requested\n"
+        + "*$volumedown (number)*: I'll decrease the volume by the amount you requested");
 }
 
-function playMusic(msg) {
+/*function playMusic(msg) {
     const broadcast = client.createVoiceBroadcast();
     broadcast.playFile('./Music/Roundabout.mp3');
     // Play "music.mp3" in all voice connections that the client is in
@@ -69,8 +85,68 @@ function playMusic(msg) {
         var dispatcher = connection.playBroadcast(broadcast);
         dispatcher.setVolume(0.1);
     }
+}*/
+
+function playYoutube(msg) {
+    var streamUrl = getStringAfterSpace(msg.content);
+    const streamOptions = {seek: 0, volume: volume};
+    console.log("Streaming audio from " + streamUrl);
+    
+    dispatchers = [];
+    if (streamUrl) {
+        const stream = ytdl(streamUrl, {filter: 'audioonly'});
+        for (const connection of client.voiceConnections.values()) {
+            var dispatcher = connection.playStream(stream, streamOptions);
+            dispatchers.push(dispatcher);
+        }
+    }
 }
 
+function getStringAfterSpace(string) {
+    if(string.indexOf(" ") > 0)
+        return string.slice(string.indexOf(" ")+1, string.length);
+    return null;
+}
+
+function volumeUp(msg, message) {
+    var amount = getStringAfterSpace(message);
+    if(isNaN(amount))
+    {
+        msg.reply(amount + " is not a number!");
+        return;
+    }
+    
+    amount = parseInt(amount);
+    for (var dispatcher of dispatchers) {
+        dispatcher.setVolume(0.1*amount);
+    }
+    
+    volume += 0.1*amount;
+}
+
+function volumeDown(msg, message) {
+    var amount = getStringAfterSpace(message);
+    if(isNaN(amount))
+    {
+        msg.reply(amount + " is not a number!");
+        return;
+    }
+    
+    amount = parseInt(amount);
+    for (var dispatcher of dispatchers) {
+        //Increase by 1 so that volumedown 1 actually has an effect
+        dispatcher.setVolume(1/(amount+1));
+    }
+    
+    volume -= 0.1*amount;
+}
+
+function updateBroadcastVolumes() {
+    console.log("Volume being set to " + volume);
+    for (var dispatcher of dispatchers) {
+        dispatcher.setVolume(volume);
+    }
+}
 
 var key = fs.readFileSync("key.txt");
 client.login(key.toString());

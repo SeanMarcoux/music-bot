@@ -10,6 +10,7 @@
     "node-opus": "^0.2.7",
     "request": "^2.83.0",
     "requests": "^0.2.2",
-    "winston": "^2.4.0"
+    "winston": "^2.4.0",
+    "ytdl-core": "^0.20.2"
   }
 }
