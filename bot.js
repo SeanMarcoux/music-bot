@@ -5,7 +5,8 @@ const request = require('request');
 var ytdl = require('ytdl-core');
 
 var volume = 0.1;
-var dispatchers= [];
+var dispatchers = [];
+var youtubeQueue = [];
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
@@ -54,8 +55,8 @@ function reactToCommands(msg, message)
     /*else if(message.startsWith("$music")) {
         playMusic(msg);
     }*/
-    else if(message.startsWith("$youtube ")) {
-        playYoutube(msg);
+    else if(message.startsWith("$queue ")) {
+        queueYoutube(msg);
     }
     else if(message.startsWith("$volumeup ")) {
         volumeUp(msg, message);
@@ -72,7 +73,7 @@ function help(msg) {
     msg.reply("The following commands are available:\n"
         + "*$help*: Displays this message\n"
         /*+ "*$music*: I'll play the best song ever\n"*/
-        + "*$youtube (url)*: I'll play the audio from the video you link to\n"
+        + "*$queue (url)*: I'll queue up the audio from the video you link to\n"
         + "*$volumeup (number)*: I'll increase the volume by the amount you requested\n"
         + "*$volumedown (number)*: I'll decrease the volume by the amount you requested");
 }
@@ -87,19 +88,56 @@ function help(msg) {
     }
 }*/
 
-function playYoutube(msg) {
+function queueYoutube(msg) {
     var streamUrl = getStringAfterSpace(msg.content);
+    console.log("Adding " + streamUrl + " to the queue");
+    youtubeQueue.push(streamUrl);
+    if(youtubeQueue.length == 1 && dispatchers.length == 0)
+        playNextInQueue();
+}
+
+function playNextInQueue() {
+    resetDispatchers();
+    if(youtubeQueue.length == 0) {
+        console.log("Queue emptied");
+        return;
+    }
+    
+    var streamUrl = youtubeQueue.pop();
     const streamOptions = {seek: 0, volume: volume};
     console.log("Streaming audio from " + streamUrl);
+    messageAllChannels("Now playing " + streamUrl);
     
-    dispatchers = [];
     if (streamUrl) {
         const stream = ytdl(streamUrl, {filter: 'audioonly'});
+        var count = 0;
         for (const connection of client.voiceConnections.values()) {
             var dispatcher = connection.playStream(stream, streamOptions);
+            if(count ==0)
+            {
+                dispatcher.on('end', () => {
+                    console.log("Stream ended");
+                    playNextInQueue();
+                });
+            }
+            count++;
             dispatchers.push(dispatcher);
         }
     }
+}
+
+function messageAllChannels(message) {
+    var channels = client.channels.array();
+    for(var j = 0; j < channels.length; j++)
+    {
+        if(channels[j].type === "text" && channels[j].name.includes("bot")) {
+            channels[j].send(message);
+        }
+    }
+}
+
+function resetDispatchers() {
+    dispatchers = [];
 }
 
 function getStringAfterSpace(string) {
