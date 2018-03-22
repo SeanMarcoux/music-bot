@@ -5,12 +5,21 @@ const request = require('request');
 var ytdl = require('ytdl-core');
 
 var volume = 0.1;
+var paused = false;
+var shuffle = false;
 var dispatchers = [];
 var youtubeQueue = [];
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
     client.user.setActivity("Music");
+    //connectToMusicChannels();
+});
+
+function connectToMusicChannels() {
+    for (const connection of client.voiceConnections.values()) {
+        connection.disconnect();
+    }
     var channels = client.channels.array();
     for(var j = 0; j < channels.length; j++)
     {
@@ -18,7 +27,7 @@ client.on('ready', () => {
             channels[j].join().then(connection => console.log('Connected!')).catch(console.error);
         }
     }
-});
+}
 
 
 client.on('message', msg => {
@@ -64,6 +73,20 @@ function reactToCommands(msg, message)
     else if(message.startsWith("$volumedown ")) {
         volumeDown(msg, message);
     }
+    else if(message.startsWith("$pause")) {
+        pause(msg);
+    }
+    else if(message.startsWith("$resume")) {
+        resume(msg);
+    }
+    else if(message.startsWith("$shuffle")) {
+        shuffle = true;
+        msg.reply("Now in shuffle mode");
+    }
+    else if(message.startsWith("$normal")) {
+        shuffle = false;
+        msg.reply("Now in linear mode");
+    }
     else {
         msg.reply("I didn't understand that command. If it was meant for another bot, my bad!");
     }
@@ -75,7 +98,11 @@ function help(msg) {
         /*+ "*$music*: I'll play the best song ever\n"*/
         + "*$queue (url)*: I'll queue up the audio from the video you link to\n"
         + "*$volumeup (number)*: I'll increase the volume by the amount you requested\n"
-        + "*$volumedown (number)*: I'll decrease the volume by the amount you requested");
+        + "*$volumedown (number)*: I'll decrease the volume by the amount you requested\n"
+        + "*$pause*: I'll pause the current music\n"
+        + "*$resume*: I'll resume the current music\n"
+        + "*$shuffle*: I'll put myself in shuffle mode\n"
+        + "*$normal*: I'll take myself out of shuffle mode");
 }
 
 /*function playMusic(msg) {
@@ -102,8 +129,15 @@ function playNextInQueue() {
         console.log("Queue emptied");
         return;
     }
+    connectToMusicChannels();
     
-    var streamUrl = youtubeQueue.pop();
+    if(!shuffle)
+        var streamUrl = youtubeQueue.shift();
+    else {
+        var index = getRandomInt(0, youtubeQueue.length-1);
+        var streamUrl = youtubeQueue[index];
+        youtubeQueue.splice(index, 1);
+    }
     const streamOptions = {seek: 0, volume: volume};
     console.log("Streaming audio from " + streamUrl);
     messageAllChannels("Now playing " + streamUrl);
@@ -124,6 +158,10 @@ function playNextInQueue() {
             dispatchers.push(dispatcher);
         }
     }
+}
+
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function messageAllChannels(message) {
@@ -155,11 +193,14 @@ function volumeUp(msg, message) {
     }
     
     amount = parseInt(amount);
+    if(amount > 5)
+    {
+        msg.reply("Fuck off, I don't want to be deaf");
+        return;
+    }
     for (var dispatcher of dispatchers) {
         dispatcher.setVolume(0.1*amount);
     }
-    
-    volume += 0.1*amount;
 }
 
 function volumeDown(msg, message) {
@@ -175,8 +216,6 @@ function volumeDown(msg, message) {
         //Increase by 1 so that volumedown 1 actually has an effect
         dispatcher.setVolume(1/(amount+1));
     }
-    
-    volume -= 0.1*amount;
 }
 
 function updateBroadcastVolumes() {
@@ -184,6 +223,36 @@ function updateBroadcastVolumes() {
     for (var dispatcher of dispatchers) {
         dispatcher.setVolume(volume);
     }
+}
+
+function pause(msg) {
+    if(dispatchers.length == 0) {
+        msg.reply("There is nothing playing to pause!");
+        return;
+    }
+    if(paused) {
+        msg.reply("It is already paused!");
+        return;
+    }
+    console.log("Pausing music");
+    
+    for(var i = 0; i < dispatchers.length; i++) {
+        dispatchers[i].pause();
+    }
+    paused = true;
+}
+
+function resume(msg) {
+    if(dispatchers.length == 0 || !paused) {
+        msg.reply("There's nothing paused to resume!");
+        return;
+    }
+    console.log("Resuming music");
+    
+    for(var i = 0; i < dispatchers.length; i++) {
+        dispatchers[i].resume();
+    }
+    paused = false;
 }
 
 var key = fs.readFileSync("key.txt");
