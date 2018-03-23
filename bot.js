@@ -9,17 +9,39 @@ var paused = false;
 var shuffle = false;
 var dispatchers = [];
 var youtubeQueue = [];
+var queueBackupFile = "queueBackup.txt";
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
     client.user.setActivity("Music");
-    //connectToMusicChannels();
+    initializeQueue();
 });
 
-function connectToMusicChannels() {
+function initializeQueue() {
+    if(!fs.existsSync(queueBackupFile)) {
+        backupQueue();
+    }
+    else {
+        var fileText = fs.readFileSync(queueBackupFile).toString();
+        var lines = fileText.split("\n");
+        for(var i = 0; i < lines.length; i++) {
+            if(lines[i].length == 0)
+                break;
+            youtubeQueue.push(lines[i]);
+        }
+        if(youtubeQueue.length > 0)
+            playNextInQueue();
+    }
+}
+
+function disconnectMusicChannels() {
     for (const connection of client.voiceConnections.values()) {
         connection.disconnect();
     }
+}
+
+function connectToMusicChannels() {
+    disconnectMusicChannels();
     var channels = client.channels.array();
     for(var j = 0; j < channels.length; j++)
     {
@@ -87,9 +109,22 @@ function reactToCommands(msg, message)
         shuffle = false;
         msg.reply("Now in linear mode");
     }
+    else if(message.startsWith("$skip")) {
+        skip(msg);
+    }
     else {
         msg.reply("I didn't understand that command. If it was meant for another bot, my bad!");
     }
+}
+
+function skip(msg) {
+    msg.reply("Skipping");
+    //Change the behavior for when the dispatcher ends so we don't keep queueing
+    if(dispatchers.length > 0)
+        dispatchers[0].end();
+    //resetDispatchers();
+    //disconnectMusicChannels();
+    //playNextInQueue();
 }
 
 function help(msg) {
@@ -102,7 +137,8 @@ function help(msg) {
         + "*$pause*: I'll pause the current music\n"
         + "*$resume*: I'll resume the current music\n"
         + "*$shuffle*: I'll put myself in shuffle mode\n"
-        + "*$normal*: I'll take myself out of shuffle mode");
+        + "*$normal*: I'll take myself out of shuffle mode\n"
+        + "*$skip*: I'll skip the current song\n");
 }
 
 /*function playMusic(msg) {
@@ -119,8 +155,17 @@ function queueYoutube(msg) {
     var streamUrl = getStringAfterSpace(msg.content);
     console.log("Adding " + streamUrl + " to the queue");
     youtubeQueue.push(streamUrl);
+    backupQueue();
     if(youtubeQueue.length == 1 && dispatchers.length == 0)
         playNextInQueue();
+}
+
+function backupQueue() {
+    var fileText = "";
+    for(index in youtubeQueue) {
+        fileText += youtubeQueue[index] + "\n";
+    }
+    fs.writeFileSync(queueBackupFile, fileText);
 }
 
 function playNextInQueue() {
@@ -138,6 +183,7 @@ function playNextInQueue() {
         var streamUrl = youtubeQueue[index];
         youtubeQueue.splice(index, 1);
     }
+    backupQueue();
     const streamOptions = {seek: 0, volume: volume};
     console.log("Streaming audio from " + streamUrl);
     messageAllChannels("Now playing " + streamUrl);
