@@ -312,7 +312,7 @@ function search(msg) {
     var searchQuery = getStringAfterSpace(msg.content);
     
     var opts = {
-      maxResults: 1,
+      maxResults: 5,
       key: youtubeKey
     };
     
@@ -321,8 +321,15 @@ function search(msg) {
             return console.log(err);
         if(results.length == 0)
             msg.reply("No search results found");
-        var streamUrl = results[0].link;
-        queueUrl(streamUrl);
+        for(var i = 0; i < results.length; i++) {
+            if(results[i].kind == "youtube#video")
+            {
+                var streamUrl = results[i].link;
+                queueUrl(streamUrl);
+                return;
+            }
+        }
+        msg.reply("No search results found");
     });
 }
 
