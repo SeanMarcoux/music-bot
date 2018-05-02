@@ -122,9 +122,6 @@ function skip(msg) {
     //Change the behavior for when the dispatcher ends so we don't keep queueing
     if(dispatchers.length > 0)
         dispatchers[0].end();
-    //resetDispatchers();
-    //disconnectMusicChannels();
-    //playNextInQueue();
 }
 
 function help(msg) {
