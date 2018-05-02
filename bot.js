@@ -3,6 +3,8 @@ const client = new Discord.Client();
 const fs = require('fs');
 const request = require('request');
 var ytdl = require('ytdl-core');
+var youtubeSearch = require('youtube-search');
+var youtubeKey = fs.readFileSync("youtube-key.txt").toString();
 
 var volume = 0.1;
 var paused = false;
@@ -112,6 +114,9 @@ function reactToCommands(msg, message)
     else if(message.startsWith("$skip")) {
         skip(msg);
     }
+    else if(message.startsWith("$search")) {
+        search(msg);
+    }
     else {
         msg.reply("I didn't understand that command. If it was meant for another bot, my bad!");
     }
@@ -129,6 +134,7 @@ function help(msg) {
         + "*$help*: Displays this message\n"
         /*+ "*$music*: I'll play the best song ever\n"*/
         + "*$queue (url)*: I'll queue up the audio from the video you link to\n"
+        + "*$search (search terms)*: I'll queue up the audio from the first video I find in the search\n"
         + "*$volumeup (number)*: I'll increase the volume by the amount you requested\n"
         + "*$volumedown (number)*: I'll decrease the volume by the amount you requested\n"
         + "*$pause*: I'll pause the current music\n"
@@ -150,6 +156,10 @@ function help(msg) {
 
 function queueYoutube(msg) {
     var streamUrl = getStringAfterSpace(msg.content);
+    queueUrl(streamUrl);
+}
+
+function queueUrl(streamUrl) {
     console.log("Adding " + streamUrl + " to the queue");
     youtubeQueue.push(streamUrl);
     backupQueue();
@@ -296,6 +306,24 @@ function resume(msg) {
         dispatchers[i].resume();
     }
     paused = false;
+}
+
+function search(msg) {
+    var searchQuery = getStringAfterSpace(msg.content);
+    
+    var opts = {
+      maxResults: 1,
+      key: youtubeKey
+    };
+    
+    youtubeSearch(searchQuery, opts, function(err, results) {
+        if(err)
+            return console.log(err);
+        if(results.length == 0)
+            msg.reply("No search results found");
+        var streamUrl = results[0].link;
+        queueUrl(streamUrl);
+    });
 }
 
 var key = fs.readFileSync("key.txt");
